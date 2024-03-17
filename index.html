@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🎲 Meeting Stats</title>
+<script type="text/javascript">
+//"use strict";
+
+var visitorData = new Array();
+var nameData = new Map();
+var saveTimeoutId;
+
+class Entry {
+	constructor(options = {beginTime: new Date(), endTime: null, hasLeft: false, name: '' }) {
+		this.beginTime = options['beginTime'] ? new Date(options['beginTime']) : null;
+		this.endTime   = options['endTime'] ? new Date(options['endTime']) : null;
+		this.hasLeft   = options['hasLeft'] ? Boolean(options['hasLeft']) : false;
+		this.name      = options['name'] ? String(options['name']) : '';
+	}
+	
+	setLeft(hasLeft) {
+		this.hasLeft = hasLeft;
+		if(hasLeft && this.endTime === null) {
+			this.endTime = new Date();
+			if(this.endTime.getDate() != this.beginTime.getDate()) {
+				this.endTime = new Date(this.beginTime);
+				this.endTime.setHours(23);
+				this.endTime.setMinutes(59);
+				this.endTime.setMilliseconds(500);
+			}
+		}
+	}
+}
+
+function confirmDialog(text, func, ...args) {
+	if(confirm(text)) {
+		func(...args);
+	}
+}
+
+function addDays(date, days) {
+	const newDate = new Date(date);
+	newDate.setDate(newDate.getDate() + days);
+	return newDate;
+}
+
+function saveVisitorData() {
+	setCookie('visitorData', JSON.stringify(visitorData), {'max-age': addDays(new Date, 30)});
+}
+
+function loadVisitorData() {
+	const cookie = getCookie('visitorData');
+	let visitorDataJson = [];
+	if(typeof cookie != "undefined") {
+		visitorDataJson = JSON.parse(cookie);
+	}
+	for(const json of visitorDataJson) {
+		visitorData.push(new Entry(json));
+	}
+}
+
+function saveNameData() {
+	for(const visitor of visitorData) {
+		if(visitor.name.trim().length < 2) {
+			continue;
+		}
+		nameData[visitor.name] = new Date;
+	}
+	setCookie('nameData', JSON.stringify(nameData), {'max-age': addDays(new Date, 30)});
+}
+
+function loadNameData() {
+	const cookie = getCookie('nameData');
+	if(typeof cookie != "undefined") {
+		nameData = new Map(Object.entries((JSON.parse(cookie))));
+	}
+	const curDate = new Date;
+	for (let [name, date] of nameData) {
+		if((curDate.getTime() - new Date(date).getTime()) / (1000 * 60 * 60 * 24) > 30) {
+			nameData.delete(name);
+		}
+	}
+}
+
+function saveDataImpl() {
+	saveVisitorData();
+	saveNameData();
+	setCookie('comission', new String(getById('comissionInput').value), {'max-age': addDays(new Date, 30)});
+	setCookie('costPerMinute', new String(getById('costInput').value), {'max-age': addDays(new Date, 30)});
+	console.log("Data saved: " + (new Date).toTimeString());
+}
+
+function saveData() {
+	clearTimeout(saveTimeoutId);
+	saveTimeoutId = setTimeout(saveDataImpl, 3000);
+}
+
+addEventListener("beforeunload", saveDataImpl);
+
+function load() {
+	loadNameData();
+	loadVisitorData();
+	const comission = getCookie('comission');
+	const costPerMinute = getCookie('costPerMinute');
+	if(typeof comission != "undefined") {
+		getById('comissionInput').value = comission;
+	}
+	if(typeof costPerMinute != "undefined") {
+		getById('costInput').value = costPerMinute;
+	}
+	generateData();
+}
+
+function refreshData() {
+	calcTotalSum();
+	saveData();
+}
+
+function generateData() {
+	generateTable(visitorData);
+	filterTable();
+	refreshData();
+}
+
+function updateVisitorData(index, field, data) {
+	index = parseInt(index);
+	visitorData[index][field] = data;
+}
+
+function updateVisitor(index, field, data) {
+	updateVisitorData(index, field, data);
+	refreshData();
+}
+
+function updateVisitorStatus(index, hasLeft) {
+	index = parseInt(index);
+	visitorData[index].setLeft(hasLeft);
+	generateData();
+}
+
+function deleteVisitor(index) {
+	index = parseInt(index);
+	visitorData.splice(index, 1);
+	generateData();
+}
+
+function clearVisitorData() {
+	visitorData = new Array();
+	generateData();
+}
+
+function addVisitor() {
+	visitorData.push(new Entry());
+	generateData();
+}
+
+function endMeeting() {
+	for(let visitor of visitorData) {
+		visitor.setLeft(true);
+	}
+	generateData();
+	
+	for (const [i, visitor] of visitorData.entries()) {
+		if(visitor.endTime == null || visitor.endTime <= visitor.beginTime) {
+			alert(`Некорректное время ухода у посетителя ${i + 1} "${visitor.name}"`);
+			break;
+		}
+	}
+}
+
+const spMatch = function(s) {
+	return s.toLowerCase().trim() === '\u044F\u043D';
+}
+
+function selectFirstPlayer() {
+	const current = visitorData.map((visitor, index) => { return {index: index, visitor: visitor}; })
+								.filter((item) => !item.visitor.hasLeft);
+						
+	if(current.length == 0) {
+		alert('Нет активных игроков');
+		return;
+	}
+	const curIndex = Math.floor(Math.random() * current.length);
+	const item = current[curIndex];
+	let name = item.visitor.name;
+	if(spMatch(name)) {
+		name += ' \uD83D\uDC51';
+	}
+	alert(`"${name}" (${item.index + 1}) выбран первым игроком`);
+}
+
+function getById(id) {
+	return document.getElementById(id);
+}
+
+function createElements() {
+	const argsIter = arguments[Symbol.iterator]();
+	let first = document.createElement(argsIter.next().value);
+	let last = first;
+	let it;
+	while(!(it = argsIter.next()).done) {
+		let child = document.createElement(it.value);
+		last.appendChild(child);
+		last = child;
+	}
+	return {first, last};
+}
+
+function createTimeString(time) {
+	if(!time) {
+		return '';
+	}
+	const hours   = (new String(time.getHours())).padStart(2, '0');
+	const minutes = (new String(time.getMinutes())).padStart(2, '0');
+	return hours + ':' + minutes;
+}
+
+function generateTable(visitorData) {
+	let table = getById('data').getElementsByTagName('tbody')[0];
+	table.innerHTML = '';
+	
+	function createTimeInput(className, index, time) {
+		let nodes = createElements('td', 'input');
+		let input = nodes.last;
+		input.type = 'time';
+		input.classList.add(className);
+		input.dataset.index = index;
+		input.value = createTimeString(time);
+		input.onchange = function(){
+			let date = new Date;
+			date.setHours(this.value.split(':')[0]);
+			date.setMinutes(this.value.split(':')[1]);
+			updateVisitor(this.dataset.index, className, date);
+		};
+		return nodes.first;
+	}
+
+	for (const [i, value] of visitorData.entries()) {
+		let tr = document.createElement('tr');
+		let thNum = document.createElement('th');
+		thNum.appendChild(document.createTextNode(i + 1));
+		tr.appendChild(thNum);
+		tr.appendChild(createTimeInput('beginTime', i, value.beginTime));
+		tr.appendChild(createTimeInput('endTime', i, value.endTime));
+		let nodes = createElements('td', 'input');
+		let leftCheckBox = nodes.last;
+		leftCheckBox.type = 'checkbox';
+		leftCheckBox.checked = value.hasLeft;
+		leftCheckBox.dataset.index = i;
+		leftCheckBox.classList.add('hasLeftCheckBox');
+		leftCheckBox.onclick = function(){ updateVisitorStatus(this.dataset.index, this.checked); };
+		tr.appendChild(nodes.first);
+		let tdName = document.createElement('td');
+		let divName = document.createElement('div');
+		let nameInput = document.createElement('input');
+		
+		divName.classList.add('autocomplete');
+		
+		nameInput.type = 'text';
+		nameInput.value = value.name;
+		nameInput.dataset.index = i;
+
+		nameInput.classList.add('nameInput');
+		const postprocess = function(obj) {
+			if(spMatch(obj.value)) {
+				let span = document.createElement('span')
+				span.appendChild(document.createTextNode('\uD83D\uDC51'));
+				span.style.position = 'absolute';
+				span.style.marginLeft = '-18pt';
+				span.style.zIndex = "9999";
+				span.style.marginTop = '6pt';
+				obj.parentNode.appendChild(span);
+			}
+		}
+
+		nameInput.autocomplete = 'off';
+		autocomplete(nameInput, [...nameData.keys()]);
+		
+		tdName.appendChild(divName);
+		divName.appendChild(nameInput);
+		tr.appendChild(tdName);
+		
+		postprocess(nameInput);
+		nameInput.addEventListener("change", function() {
+			updateVisitor(this.dataset.index, 'name', this.value);
+			postprocess(nameInput);
+		});
+		
+		nodes = createElements('td', 'input');
+		let inputDelete = nodes.last;
+		inputDelete.type = 'button';
+		inputDelete.dataset.index = i;
+		inputDelete.value = '✕';
+		inputDelete.onclick = function(){
+			let name = this.parentNode.parentNode.getElementsByClassName('nameInput')[0].value;
+			if(spMatch(name)) {
+				name += ' \uD83D\uDC51';
+			}
+			confirmDialog(`Удалить "${name}"?`, deleteVisitor, this.dataset.index);
+		};
+		tr.appendChild(nodes.first);
+		
+		if(value.hasLeft) {
+			tr.classList.add('hasLeft');
+		}
+		else {
+			tr.classList.remove('hasLeft');
+		}
+		
+		table.appendChild(tr);
+	}
+}
+
+function calcTotalSum() {
+	let sum = 0;
+	let present = 0;
+	const comission = parseInt(getById('comissionInput').value) / 100.0;
+	const costPerMinute = parseFloat(getById('costInput').value.replace(',', '.'));
+	for (const visitor of visitorData.values()) {
+		present += !visitor.hasLeft;
+	
+		if(visitor.endTime && (visitor.endTime > visitor.beginTime)) {
+			const minutes = (visitor.endTime - visitor.beginTime) / 1000 / 60;
+			sum += minutes * costPerMinute * comission;
+		}
+	}
+	getById('totalSum').innerHTML = Math.round(sum);
+	getById('presentVisitorsCount').innerHTML = present;
+	getById('totalVisitorsCount').innerHTML = visitorData.length;
+}
+
+function filterTable() {
+	let showPresent = getById("showPresentCheckBox").checked;
+	let showLeft 	= getById("showLeftCheckBox").checked;
+	let filterInput = getById("filterInput").value.toLowerCase().replace('ё', 'е');
+	let rows 		= getById('data').getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+	Array.prototype.forEach.call(rows, (row) => {
+		let left 		= row.getElementsByClassName('hasLeftCheckBox')[0].checked;
+		let nameInput 	= row.getElementsByClassName('nameInput')[0];
+		let name 		= nameInput.value.toLowerCase().replace('ё', 'е');
+		
+		let isFilterFound;
+		if(filterInput.length == 0) {
+			isFilterFound = true;
+		}
+		else {
+			isFilterFound = (name.search(filterInput) == 0);
+		}
+		
+		if(isFilterFound
+			&& ((showPresent && !left) || (showLeft && left)))
+		{
+			row.classList.remove("hidden");
+		}
+		else {
+			row.classList.add("hidden");
+		}
+	});
+}
+
+function filterClear() {
+	getById("filterInput").value = "";
+	filterTable();
+}
+
+function download(data, filename, type) {
+    let file = new Blob([data], {type: type});
+    if (window.navigator.msSaveOrOpenBlob) // IE10+
+        window.navigator.msSaveOrOpenBlob(file, filename);
+    else { // Others
+        let a = document.createElement("a"),
+                url = URL.createObjectURL(file);
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);  
+        }, 0); 
+    }
+}
+
+function createReport() {
+	generateData();
+	const template = "<!DOCTYPE html><head><meta charset='UTF-8'><title>🎲 Meeting Stats</title></head><body>{DATA}</body></html>";
+	const date = new Date();
+	const dateString = date.getFullYear() 
+						+ '-' + (new String(date.getMonth())).padStart(2, '0')
+						+ '-' + (new String(date.getDate())).padStart(2, '0');
+	let data = dateString;
+	data += '<table><tr><th>Приход</th><th>Уход</th><th>Имя</th></tr>';
+	for (const visitor of visitorData) {
+		data += '<tr>' 
+					+ '<td>' + createTimeString(visitor.beginTime) + '</td>'
+					+ '<td>' + createTimeString(visitor.endTime) + '</td>'
+					+ '<td>' + visitor.name + '</td>'
+				  + '</tr>';
+	}
+	data += '</table>';
+	data += getById('stats').outerHTML;
+	download(template.replace('{DATA}', data), "сходка_" + dateString + ".html", 'text/html');
+}
+
+function getCookie(name) {
+  let matches = document.cookie.match(new RegExp(
+    "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + "=([^;]*)"
+  ));
+  return matches ? decodeURIComponent(matches[1]) : undefined;
+}
+
+function setCookie(name, value, options = {}) {
+
+  options = {
+    path: '/',
+	SameSite: 'Lax',
+    ...options
+  };
+
+  if (options.expires instanceof Date) {
+    options.expires = options.expires.toUTCString();
+  }
+
+  let updatedCookie = encodeURIComponent(name) + "=" + encodeURIComponent(value);
+
+  for (let optionKey in options) {
+    updatedCookie += "; " + optionKey;
+    let optionValue = options[optionKey];
+    if (optionValue !== true) {
+      updatedCookie += "=" + optionValue;
+    }
+  }
+
+  document.cookie = updatedCookie;
+}
+function autocomplete(inp, arr) {
+  /*the autocomplete function takes two arguments,
+  the text field element and an array of possible autocompleted values:*/
+  var currentFocus;
+  /*execute a function when someone writes in the text field:*/
+  inp.addEventListener("input", function(e) {
+      var a, b, i, val = this.value;
+      /*close any already open lists of autocompleted values*/
+      closeAllLists();
+      if (!val) { return false;}
+      currentFocus = -1;
+      /*create a DIV element that will contain the items (values):*/
+      a = document.createElement("DIV");
+      a.setAttribute("id", this.id + "autocomplete-list");
+      a.setAttribute("class", "autocomplete-items");
+      /*append the DIV element as a child of the autocomplete container:*/
+      this.parentNode.appendChild(a);
+      /*for each item in the array...*/
+      for (i = 0; i < arr.length; i++) {
+        /*check if the item starts with the same letters as the text field value:*/
+        if (arr[i].substr(0, val.length).toUpperCase() == val.toUpperCase()) {
+          /*create a DIV element for each matching element:*/
+          b = document.createElement("DIV");
+          /*make the matching letters bold:*/
+          b.innerHTML = "<strong>" + arr[i].substr(0, val.length) + "</strong>";
+          b.innerHTML += arr[i].substr(val.length);
+          /*insert a input field that will hold the current array item's value:*/
+          b.innerHTML += "<input type='hidden' value='" + arr[i] + "'>";
+          /*execute a function when someone clicks on the item value (DIV element):*/
+              b.addEventListener("click", function(e) {
+              /*insert the value for the autocomplete text field:*/
+              inp.value = this.getElementsByTagName("input")[0].value;
+              inp.dispatchEvent(new Event("change"));
+              /*close the list of autocompleted values,
+              (or any other open lists of autocompleted values:*/
+              closeAllLists();
+          });
+          a.appendChild(b);
+        }
+      }
+  });
+  /*execute a function presses a key on the keyboard:*/
+  inp.addEventListener("keydown", function(e) {
+      var x = document.getElementById(this.id + "autocomplete-list");
+      if (x) x = x.getElementsByTagName("div");
+      if (e.keyCode == 40) {
+        /*If the arrow DOWN key is pressed,
+        increase the currentFocus variable:*/
+        currentFocus++;
+        /*and and make the current item more visible:*/
+        addActive(x);
+      } else if (e.keyCode == 38) { //up
+        /*If the arrow UP key is pressed,
+        decrease the currentFocus variable:*/
+        currentFocus--;
+        /*and and make the current item more visible:*/
+        addActive(x);
+      } else if (e.keyCode == 13) {
+        /*If the ENTER key is pressed, prevent the form from being submitted,*/
+        e.preventDefault();
+        if (currentFocus > -1) {
+          /*and simulate a click on the "active" item:*/
+          if (x) x[currentFocus].click();
+        }
+      }
+  });
+  function addActive(x) {
+    /*a function to classify an item as "active":*/
+    if (!x) return false;
+    /*start by removing the "active" class on all items:*/
+    removeActive(x);
+    if (currentFocus >= x.length) currentFocus = 0;
+    if (currentFocus < 0) currentFocus = (x.length - 1);
+    /*add class "autocomplete-active":*/
+    x[currentFocus].classList.add("autocomplete-active");
+  }
+  function removeActive(x) {
+    /*a function to remove the "active" class from all autocomplete items:*/
+    for (var i = 0; i < x.length; i++) {
+      x[i].classList.remove("autocomplete-active");
+    }
+  }
+  function closeAllLists(elmnt) {
+    /*close all autocomplete lists in the document,
+    except the one passed as an argument:*/
+    var x = document.getElementsByClassName("autocomplete-items");
+    for (var i = 0; i < x.length; i++) {
+      if (elmnt != x[i] && elmnt != inp) {
+      x[i].parentNode.removeChild(x[i]);
+    }
+  }
+}
+/*execute a function when someone clicks in the document:*/
+document.addEventListener("click", function (e) {
+    closeAllLists(e.target);
+});
+}
+</script>
+<style>
+html, body {
+	margin:0;
+	padding:0;
+	width: auto;
+}
+#data {
+	/*max-width: 334px;*/
+}
+#main {
+	padding: 4px;
+}
+.hidden {
+	display: none;
+}
+body {
+	color: #000;
+	font-size: 13px;
+	font-family: -apple-system,BlinkMacSystemFont,Roboto,Helvetica Neue,sans-serif;
+	line-height: 1.154;
+	font-weight: 400;
+}
+input {
+	margin: 1pt;
+}
+
+input[type='button'] {
+	color: white;
+	padding: 8px 8px 8px;
+	border: none;
+	background-color:#5181b8;
+	border-radius: 4px;
+	cursor:pointer;
+	font-size:12.5px;
+	font-family:-apple-system,BlinkMacSystemFont,Roboto,Helvetica Neue,sans-serif;
+	line-height:15px;
+	text-align:center;
+	text-decoration:none;
+}
+input[type='button']:hover {
+	background-color:#5b88bd;
+}
+input[type='button']:disabled {
+	background-color:#e5ebf1;
+}
+
+input[type='checkbox'] {
+	width: 17pt;
+    height: 17pt;
+	margin: 0 6pt;
+}
+
+/*
+input[type='checkbox'] {
+	position: absolute;
+	z-index: -1;
+	opacity: 0;
+	margin: 10px 0 0 20px;
+}
+input[type='checkbox'] + label {
+	position: relative;
+	padding: 0 0 0 32px;
+	cursor: pointer;
+}
+input[type='checkbox'] + label:before {
+	content: '';
+	position: absolute;
+	top: -4px;
+	left: 0;
+	width: 26px;
+	height: 26px;
+	border-radius: 4px;
+	background-color: #e5ebf1;
+}
+input[type='checkbox'] + label:after {
+	content: '';
+	position: absolute;
+	top: -2px;
+	left: 2px;
+	width: 26px;
+	height: 26px;
+}
+input[type='checkbox']:checked + label:before {
+	background-color: #5181b8;
+}
+input[type='checkbox']:checked + label:after {
+	left: 9px;
+	top: 2px;
+	width: 5px;
+	height: 10px;
+	border: solid white;
+	border-width: 0 3px 3px 0;
+	transform: rotate(45deg);
+}
+input[type='checkbox']:focus + label:before {
+}
+*/
+
+input[type='text'], input[type='time'] {
+    border: 1px solid #224b7a;
+    box-sizing: border-box;
+    padding: 6px;
+    height: 28px;
+    line-height: 16pt;
+    border-radius: 4px;
+}
+
+input[type='text']:focus {
+	background-color:#fff;
+	color:#000;
+}
+
+td, th, tr {
+	padding: 0;
+}
+
+.hasLeft {
+	background-color: #EEE;
+}
+
+.nameInput {
+	width: 60pt;
+}
+
+#stats th, #settings th {
+	text-align: left;
+}
+
+/*the container must be positioned relative:*/
+.autocomplete {
+  position: relative;
+  display: inline-block;
+}
+
+.autocomplete-items {
+  position: absolute;
+  border: 1px solid #d4d4d4;
+  border-bottom: none;
+  border-top: none;
+  z-index: 99;
+  /*position the autocomplete items to be the same width as the container:*/
+  top: 100%;
+  left: 0;
+  right: 0;
+}
+
+.autocomplete-items div {
+  padding: 10px;
+  cursor: pointer;
+  background-color: #fff; 
+  border-bottom: 1px solid #d4d4d4; 
+}
+
+/*when hovering an item:*/
+.autocomplete-items div:hover {
+  background-color: #e9e9e9; 
+}
+
+/*when navigating through the items using the arrow keys:*/
+.autocomplete-active {
+  background-color: DodgerBlue !important; 
+  color: #ffffff; 
+}
+</style>
+</head>
+<body>
+<div id='main'>
+  <table><tr>
+	 <td><input type=checkbox id="showPresentCheckBox" onclick="filterTable()" checked >
+	 <label for="showPresentCheckBox">Присутствующие</label></td>
+	 <td><input type=checkbox id="showLeftCheckBox" onclick="filterTable()" checked >
+	 <label for="showLeftCheckBox">Ушедшие</label></td>
+  </tr></table>
+  <hr style="border: none; border-top: 1px solid #e7e8ec;" />
+  <div style='position: -webkit-sticky; position: sticky; top: 0; z-index: 10; background-color: white;'>
+  <table><tr>
+	 <td><input id="filterInput" type="text" size="16" onkeyup="filterTable()"></td>
+	 <td><input value="Очистить" id="filterClearInput" type="button" onclick="filterClear()"></td>
+  </tr></table>
+  </div>
+  <div id='pageData'>
+  <table id='data'>
+	<thead>
+		<tr><th>№</th><th>Приход</th><th>Уход</th><th>Ушел</th><th>Имя</th><th></th></tr>
+	</thead>
+	<tbody>
+	</tbody>
+  </table>
+  
+  <input type='button' value="Добавить" onclick="addVisitor()" > 
+  <input type='button' value="Завершить" onclick="confirmDialog('Завершить встречу?', endMeeting)" > 
+  <input type='button' value="Очистить" onclick="confirmDialog('Очистить данные?', clearVisitorData)" >
+  <br><br>
+  <input type='button' value="Выбрать игрока" onclick="selectFirstPlayer()" > 
+  
+  <div id="data"></div>
+	  <table id="stats">
+		  <tr><th>Присутствуют:</th><td><span id="presentVisitorsCount"></span></td></tr>
+		  <tr><th>Всего:</th><td><span id="totalVisitorsCount"></span></td></tr>
+		  <tr><th>Сумма:</th><td><span id="totalSum">0</span> руб.</td></tr>
+	  </table>
+	  <table id="settings">
+		  <tr><th>Процент:</th><td><input type=number step=5 value='30' size=5 id='comissionInput' onchange='calcTotalSum()' /></td></tr>
+		  <tr><th>Цена за минуту:</th><td><input type=number step=0.1 value=3.5 size=5 id='costInput' onchange='calcTotalSum()' /></td></tr>
+	  </table>
+  </div>
+
+  <input type='button' value="Сохранить отчет" onclick="createReport()" >
+</div>
+<script>
+	load();
+</script>
+</body>
+</html>
+<!-- © YAN -->
