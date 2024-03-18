@@ -668,6 +668,10 @@ td, th, tr {
 	text-align: left;
 }
 
+.filter {
+	text-align: right;
+}
+
 /*the container must be positioned relative:*/
 .autocomplete {
   position: relative;
@@ -715,10 +719,10 @@ td, th, tr {
   </tr></table>
   <hr style="border: none; border-top: 1px solid #e7e8ec;" />
   <div style='position: -webkit-sticky; position: sticky; top: 0; z-index: 10; background-color: white;'>
-  <table><tr>
-	 <td><input id="filterInput" type="text" size="16" onkeyup="filterTable()"></td>
-	 <td><input value="Очистить" id="filterClearInput" type="button" onclick="filterClear()"></td>
-  </tr></table>
+  <div class="filter">
+	 <input id="filterInput" type="text" size="16" onkeyup="filterTable()">
+	 <input value="Очистить" id="filterClearInput" type="button" onclick="filterClear()">
+  </div>
   </div>
   <div id='pageData'>
   <table id='data'>
