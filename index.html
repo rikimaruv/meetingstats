@@ -46,7 +46,7 @@ function addDays(date, days) {
 }
 
 function saveVisitorData() {
-	setCookie('visitorData', JSON.stringify(visitorData), {'max-age': addDays(new Date, 30)});
+	setCookie('visitorData', JSON.stringify(visitorData), {'expires': addDays(new Date, 30), 'max-age': 30*24*60*60});
 }
 
 function loadVisitorData() {
@@ -67,7 +67,7 @@ function saveNameData() {
 		}
 		nameData[visitor.name] = new Date;
 	}
-	setCookie('nameData', JSON.stringify(nameData), {'max-age': addDays(new Date, 30)});
+	setCookie('nameData', JSON.stringify(nameData), {'expires': addDays(new Date, 30), 'max-age': 30*24*60*60});
 }
 
 function loadNameData() {
@@ -86,8 +86,8 @@ function loadNameData() {
 function saveDataImpl() {
 	saveVisitorData();
 	saveNameData();
-	setCookie('comission', new String(getById('comissionInput').value), {'max-age': addDays(new Date, 30)});
-	setCookie('costPerMinute', new String(getById('costInput').value), {'max-age': addDays(new Date, 30)});
+	setCookie('comission', new String(getById('comissionInput').value), {'expires': addDays(new Date, 30), 'max-age': 30*24*60*60});
+	setCookie('costPerMinute', new String(getById('costInput').value), {'expires': addDays(new Date, 30), 'max-age': 30*24*60*60});
 	console.log("Data saved: " + (new Date).toTimeString());
 }
 
