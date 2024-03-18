@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<!-- <meta name="viewport" content="width=device-width, initial-scale=1"> -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>🎲 Meeting Stats</title>
 <script type="text/javascript">
 //"use strict";
@@ -539,24 +539,28 @@ html, body {
 	padding:0;
 	width: 100%;
 }
+body {
+	color: #000;
+	font-family: -apple-system,BlinkMacSystemFont,Roboto,Helvetica Neue,sans-serif;
+	font-weight: 400;
+	font-size: 12pt;
+}
+body > div {
+	text-align: center;
+}
 #data {
-	/*max-width: 334px;*/
-	margin:0;
-	max-width: 100%;
+	margin: 0 auto;
+}
+#data thead {
+	font-size: 8pt;
 }
 #main {
-	padding: 10px;
+	padding: 8pt 0;
 }
 .hidden {
 	display: none;
 }
-body {
-	color: #000;
-	font-size: 13px;
-	font-family: -apple-system,BlinkMacSystemFont,Roboto,Helvetica Neue,sans-serif;
-	line-height: 1.154;
-	font-weight: 400;
-}
+
 input {
 	margin: 1pt;
 }
@@ -568,9 +572,7 @@ input[type='button'] {
 	background-color:#5181b8;
 	border-radius: 4px;
 	cursor:pointer;
-	font-size:12.5px;
 	font-family:-apple-system,BlinkMacSystemFont,Roboto,Helvetica Neue,sans-serif;
-	line-height:15px;
 	text-align:center;
 	text-decoration:none;
 }
@@ -584,7 +586,7 @@ input[type='button']:disabled {
 input[type='checkbox'] {
 	width: 17pt;
     height: 17pt;
-	margin: 0 6pt;
+	margin: 0 2pt;
 }
 
 /*
@@ -636,8 +638,7 @@ input[type='checkbox']:focus + label:before {
 input[type='text'], input[type='time'] {
     border: 1px solid #224b7a;
     box-sizing: border-box;
-    padding: 6px;
-    height: 28px;
+    padding: 4pt;
     line-height: 16pt;
     border-radius: 4px;
 }
@@ -656,7 +657,7 @@ td, th, tr {
 }
 
 .nameInput {
-	width: 60pt;
+	width: 54pt;
 }
 
 #stats th, #settings th {
@@ -724,12 +725,13 @@ td, th, tr {
 	</tbody>
   </table>
   
+  <div>
   <input type='button' value="Добавить" onclick="addVisitor()" > 
   <input type='button' value="Завершить" onclick="confirmDialog('Завершить встречу?', endMeeting)" > 
   <input type='button' value="Очистить" onclick="confirmDialog('Очистить данные?', clearVisitorData)" >
   <br><br>
   <input type='button' value="Выбрать игрока" onclick="selectFirstPlayer()" > 
-  
+  </div>
   <div id="data"></div>
 	  <table id="stats">
 		  <tr><th>Присутствуют:</th><td><span id="presentVisitorsCount"></span></td></tr>
